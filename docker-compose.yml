@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.12.0
+    environment:
+      discovery.type: single-node
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.12.0
+    ports:
+      - '5601:5601'
+    depends_on:
+      - elasticsearch
+  apm-server: 
+    image: docker.elastic.co/apm/apm-server:7.12.0
+    depends_on:
+      - elasticsearch
+      - kibana
+  payara:
+    image: payara/server-full:5.2021.1
+    volumes:
+      - ./elastic-apm-agent-1.22.0.jar:/opt/payara/elastic-apm-agent.jar:ro
+      - ./target/elastic-apm-proxy-issue.war:/opt/payara/deployments/elastic-apm-proxy-issue.war:ro
+    environment:
+      - JVM_ARGS=-javaagent:/opt/payara/elastic-apm-agent.jar
+      - ELASTIC_APM_ENABLED=true
+      - ELASTIC_APM_SERVER_URL=http://apm-server:8200
+      - ELASTIC_APM_APPLICATION_PACKAGES=com.github.tobiasstadler
+      - ELASTIC_APM_LOG_LEVEL=debug
+    depends_on:
+      - apm-server
+  tomee:
+    image: tomee:8
+    volumes:
+      - ./elastic-apm-agent-1.22.0.jar:/usr/local/tomee/elastic-apm-agent.jar:ro
+      - ./target/elastic-apm-proxy-issue.war:/usr/local/tomee/webapps/elastic-apm-proxy-issue.war:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/usr/local/tomee/elastic-apm-agent.jar
+      - ELASTIC_APM_ENABLED=true
+      - ELASTIC_APM_SERVER_URL=http://apm-server:8200
+      - ELASTIC_APM_APPLICATION_PACKAGES=com.github.tobiasstadler
+      - ELASTIC_APM_LOG_LEVEL=debug
+    depends_on:
+      - apm-server
+  wildfly:
+    image: jboss/wildfly:23.0.0.Final
+    volumes:
+      - ./elastic-apm-agent-1.22.0.jar:/opt/jboss/wildfly/elastic-apm-agent.jar:ro
+      - ./target/elastic-apm-proxy-issue.war:/opt/jboss/wildfly/standalone/deployments/elastic-apm-proxy-issue.war:ro
+    environment:
+      - JAVA_OPTS=-javaagent:/opt/jboss/wildfly/elastic-apm-agent.jar
+      - ELASTIC_APM_ENABLED=true
+      - ELASTIC_APM_SERVER_URL=http://apm-server:8200
+      - ELASTIC_APM_APPLICATION_PACKAGES=com.github.tobiasstadler
+      - ELASTIC_APM_LOG_LEVEL=debug
+    depends_on:
+      - apm-server
